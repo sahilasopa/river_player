@@ -9,6 +9,7 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
+import androidx.media3.exoplayer.DefaultRenderersFactory
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
@@ -181,6 +182,7 @@ internal class RiverPlayer(
         loadControl = loadBuilder.build()
         exoPlayer = ExoPlayer.Builder(context)
             .setTrackSelector(trackSelector)
+            .setRenderersFactory(DefaultRenderersFactory(context).setEnableDecoderFallback(true))
             .setLoadControl(loadControl)
             .build()
         workManager = WorkManager.getInstance(context)
