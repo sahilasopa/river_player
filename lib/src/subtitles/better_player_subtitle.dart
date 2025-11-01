@@ -14,21 +14,27 @@ class BetterPlayerSubtitle {
     this.texts,
   });
 
-  factory BetterPlayerSubtitle(String value, bool isWebVTT) {
-    try {
-      final scanner = value.split('\n');
-      if (scanner.length == 2) {
-        return _handle2LinesSubtitles(scanner);
-      }
-      if (scanner.length > 2) {
-        return _handle3LinesAndMoreSubtitles(scanner, isWebVTT);
-      }
-      return BetterPlayerSubtitle._();
-    } catch (exception) {
-      BetterPlayerUtils.log("Failed to parse subtitle line: $value");
-      return BetterPlayerSubtitle._();
+factory BetterPlayerSubtitle(String value, bool isWebVTT) {
+  try {
+    final scanner = value.trim().split('\n').where((l) => l.trim().isNotEmpty).toList();
+
+    if (scanner.isNotEmpty && RegExp(r'^\d+$').hasMatch(scanner.first.trim())) {
+      scanner.removeAt(0);
     }
+
+    if (scanner.length == 2) {
+      return _handle2LinesSubtitles(scanner);
+    }
+    if (scanner.length > 2) {
+      return _handle3LinesAndMoreSubtitles(scanner, isWebVTT);
+    }
+    return BetterPlayerSubtitle._();
+  } catch (exception) {
+    BetterPlayerUtils.log("Failed to parse subtitle line: $value");
+    return BetterPlayerSubtitle._();
   }
+}
+
 
   static BetterPlayerSubtitle _handle2LinesSubtitles(List<String> scanner) {
     try {
