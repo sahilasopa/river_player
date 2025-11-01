@@ -81,31 +81,35 @@ class BetterPlayerSubtitlesFactory {
     return [];
   }
 
-  static List<BetterPlayerSubtitle> _parseString(String value) {
-    List<String> components = value.split('\r\n\r\n');
-    if (components.length == 1) {
-      components = value.split('\n\n');
-    }
+static List<BetterPlayerSubtitle> _parseString(String value) {
+  final bool isSrt = RegExp(r'\d+:\d+:\d+,\d+').hasMatch(value);
+  if (isSrt) {
+    value = value.replaceAll(',', '.');
+  }
 
-    // Skip parsing files with no cues
-    if (components.length == 1) {
-      return [];
-    }
+  List<String> components = value.split('\r\n\r\n');
+  if (components.length == 1) {
+    components = value.split('\n\n');
+  }
 
-    final List<BetterPlayerSubtitle> subtitlesObj = [];
+  if (components.length == 1) {
+    return [];
+  }
 
-    final bool isWebVTT = components.contains("WEBVTT");
-    for (final component in components) {
-      if (component.isEmpty) {
-        continue;
-      }
-      final subtitle = BetterPlayerSubtitle(component, isWebVTT);
-      if (subtitle.start != null &&
-          subtitle.end != null &&
-          subtitle.texts != null) {
-        subtitlesObj.add(subtitle);
-      }
+  final List<BetterPlayerSubtitle> subtitlesObj = [];
+
+  final bool isWebVTT = components.contains("WEBVTT");
+  for (final component in components) {
+    if (component.isEmpty) continue;
+    final subtitle = BetterPlayerSubtitle(component, isWebVTT);
+    if (subtitle.start != null && subtitle.end != null && subtitle.texts != null) {
+      subtitlesObj.add(subtitle);
     }
+  }
+
+  return subtitlesObj;
+}
+
 
     return subtitlesObj;
   }
