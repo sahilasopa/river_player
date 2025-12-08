@@ -2,7 +2,7 @@ group 'ir.r3r.river_player.better_player'
 version '1.0-SNAPSHOT'
 
 buildscript {
-    ext.exoPlayerVersion = "1.1.1"
+    ext.exoPlayerVersion = "1.2.1"
     ext.lifecycleVersion = "2.7.0"
     ext.annotationVersion = "1.7.1"
     ext.workVersion = "2.9.0"
