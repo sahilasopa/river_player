@@ -112,7 +112,7 @@ AVPictureInPictureController *_pipController;
 - (void)itemDidPlayToEndTime:(NSNotification*)notification {
     if (_isLooping) {
         AVPlayerItem* p = [notification object];
-        [p seekToTime:kCMTimeZero completionHandler:nil];
+        [p seekToTime:CMTimeMake(0, 1) completionHandler:nil];
     } else {
         if (_eventSink) {
             _eventSink(@{@"event" : @"completed", @"key" : _key});
@@ -139,11 +139,11 @@ static inline CGFloat radiansToDegrees(CGFloat radians) {
                                                 withVideoTrack:(AVAssetTrack*)videoTrack {
     AVMutableVideoCompositionInstruction* instruction =
     [AVMutableVideoCompositionInstruction videoCompositionInstruction];
-    instruction.timeRange = CMTimeRangeMake(kCMTimeZero, [asset duration]);
+    instruction.timeRange = CMTimeRangeMake(CMTimeMake(0, 1), [asset duration]);
     AVMutableVideoCompositionLayerInstruction* layerInstruction =
     [AVMutableVideoCompositionLayerInstruction
      videoCompositionLayerInstructionWithAssetTrack:videoTrack];
-    [layerInstruction setTransform:_preferredTransform atTime:kCMTimeZero];
+    [layerInstruction setTransform:_preferredTransform atTime:CMTimeMake(0, 1)];
 
     AVMutableVideoComposition* videoComposition = [AVMutableVideoComposition videoComposition];
     instruction.layerInstructions = @[ layerInstruction ];
@@ -344,8 +344,8 @@ static inline CGFloat radiansToDegrees(CGFloat radians) {
         }
 
         if (_player.rate == 0 && //if player rate dropped to 0
-            CMTIME_COMPARE_INLINE(_player.currentItem.currentTime, >, kCMTimeZero) && //if video was started
-            CMTIME_COMPARE_INLINE(_player.currentItem.currentTime, <, _player.currentItem.duration) && //but not yet finished
+            CMTimeCompare(_player.currentItem.currentTime, CMTimeMake(0, 1)) > 0 && //if video was started
+            CMTimeCompare(_player.currentItem.currentTime, _player.currentItem.duration) < 0 && //but not yet finished
             _isPlaying) { //instance variable to handle overall state (changed to YES when user triggers playback)
             [self handleStalled];
         }
@@ -528,8 +528,8 @@ static inline CGFloat radiansToDegrees(CGFloat radians) {
     }
 
     [_player seekToTime:CMTimeMake(location, 1000)
-        toleranceBefore:kCMTimeZero
-         toleranceAfter:kCMTimeZero
+        toleranceBefore:CMTimeMake(0, 1)
+         toleranceAfter:CMTimeMake(0, 1)
       completionHandler:^(BOOL finished){
         if (wasPlaying){
             _player.rate = _playerRate;

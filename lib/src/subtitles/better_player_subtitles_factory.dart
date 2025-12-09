@@ -109,8 +109,4 @@ static List<BetterPlayerSubtitle> _parseString(String value) {
 
   return subtitlesObj;
 }
-
-
-    return subtitlesObj;
-  }
 }
