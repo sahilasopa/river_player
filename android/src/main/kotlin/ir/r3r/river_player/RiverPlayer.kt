@@ -706,6 +706,45 @@ internal class RiverPlayer(
             return exoPlayer?.currentPosition ?: 0L
         }
 
+    /**
+     * Get video dimensions accounting for rotation.
+     * Returns Pair(width, height) or null if not available.
+     * Uses ExoPlayer's videoSize which gives the actual output size after transformations.
+     */
+    fun getVideoSize(): Pair<Int, Int>? {
+        // First try to get the actual video size from ExoPlayer (most reliable)
+        val videoSize = exoPlayer?.videoSize
+        Log.d(TAG, "getVideoSize: videoSize=${videoSize?.width}x${videoSize?.height}")
+        
+        if (videoSize != null && videoSize.width > 0 && videoSize.height > 0) {
+            Log.d(TAG, "getVideoSize: using videoSize ${videoSize.width}x${videoSize.height}")
+            return Pair(videoSize.width, videoSize.height)
+        }
+        
+        // Fallback to videoFormat with rotation handling
+        if (exoPlayer?.videoFormat == null) {
+            Log.d(TAG, "getVideoSize: videoFormat is null")
+            return null
+        }
+        
+        val videoFormat = exoPlayer.videoFormat
+        var width = videoFormat?.width ?: 0
+        var height = videoFormat?.height ?: 0
+        val rotationDegrees = videoFormat?.rotationDegrees ?: 0
+        
+        Log.d(TAG, "getVideoSize: videoFormat ${width}x${height}, rotation=$rotationDegrees")
+        
+        // Switch width/height if video is rotated 90 or 270 degrees (portrait video)
+        if (rotationDegrees == 90 || rotationDegrees == 270) {
+            val temp = width
+            width = height
+            height = temp
+        }
+        
+        Log.d(TAG, "getVideoSize: final ${width}x${height}")
+        return if (width > 0 && height > 0) Pair(width, height) else null
+    }
+
     private fun sendInitialized() {
         if (isInitialized) {
             val event: MutableMap<String, Any?> = HashMap()

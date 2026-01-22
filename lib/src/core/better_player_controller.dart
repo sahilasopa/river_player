@@ -1076,7 +1076,7 @@ class BetterPlayerController {
         _wasInFullScreenBeforePiP = _isFullScreen;
         await videoPlayerController?.enablePictureInPicture(
             left: 0, top: 0, width: 0, height: 0);
-        enterFullScreen();
+        // Don't call enterFullScreen() - it causes rotation issues with vertical videos
         _postEvent(BetterPlayerEvent(BetterPlayerEventType.pipStart));
         return;
       }

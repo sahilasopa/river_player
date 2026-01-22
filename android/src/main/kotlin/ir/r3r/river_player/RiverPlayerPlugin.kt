@@ -426,7 +426,44 @@ class RiverPlayerPlugin : FlutterPlugin, ActivityAware, MethodCallHandler {
     private fun enablePictureInPicture(player: RiverPlayer) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             player.setupMediaSession(flutterState!!.applicationContext)
-            activity!!.enterPictureInPictureMode(PictureInPictureParams.Builder().build())
+            
+            // Get video dimensions to set correct PiP aspect ratio
+            val videoSize = player.getVideoSize()
+            val builder = PictureInPictureParams.Builder()
+            
+            if (videoSize != null && videoSize.first > 0 && videoSize.second > 0) {
+                var width = videoSize.first
+                var height = videoSize.second
+                Log.d(TAG, "PiP: Original video size ${width}x${height}")
+                
+                // Check if device is in portrait mode but video reports landscape
+                // This can happen with HLS streams that are encoded landscape but displayed portrait
+                val displayMetrics = activity!!.resources.displayMetrics
+                val screenWidth = displayMetrics.widthPixels
+                val screenHeight = displayMetrics.heightPixels
+                val isScreenPortrait = screenHeight > screenWidth
+                val isVideoLandscape = width > height
+                
+                Log.d(TAG, "PiP: Screen ${screenWidth}x${screenHeight}, portrait=$isScreenPortrait, videoLandscape=$isVideoLandscape")
+                
+                // If screen is portrait but video is landscape, swap dimensions for PiP
+                // This handles the case where video is encoded landscape but displayed vertically
+                if (isScreenPortrait && isVideoLandscape) {
+                    Log.d(TAG, "PiP: Swapping dimensions for portrait PiP")
+                    val temp = width
+                    width = height
+                    height = temp
+                }
+                
+                Log.d(TAG, "PiP: Final aspect ratio ${width}x${height}")
+                builder.setAspectRatio(android.util.Rational(width, height))
+            } else {
+                Log.d(TAG, "PiP: No video size available, using default 9:16")
+                // Default to 9:16 for reels/vertical content
+                builder.setAspectRatio(android.util.Rational(9, 16))
+            }
+            
+            activity!!.enterPictureInPictureMode(builder.build())
             startPictureInPictureListenerTimer(player)
             player.onPictureInPictureStatusChanged(true)
         }
