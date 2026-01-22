@@ -167,6 +167,7 @@ internal class RiverPlayer(
     private val customDefaultLoadControl: CustomDefaultLoadControl =
         customDefaultLoadControl ?: CustomDefaultLoadControl()
     private var lastSendBufferedPosition = 0L
+    private var isInErrorState = false
 
     init {
         val loadBuilder = DefaultLoadControl.Builder()
@@ -422,16 +423,28 @@ internal class RiverPlayer(
     }
 
     fun disposeRemoteNotifications() {
-        exoPlayerEventListener?.let { exoPlayerEventListener ->
-            exoPlayer?.removeListener(exoPlayerEventListener)
+        try {
+            exoPlayerEventListener?.let { exoPlayerEventListener ->
+                exoPlayer?.removeListener(exoPlayerEventListener)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error removing player listener: $e")
         }
-        if (refreshHandler != null) {
-            refreshHandler?.removeCallbacksAndMessages(null)
-            refreshHandler = null
-            refreshRunnable = null
+        try {
+            if (refreshHandler != null) {
+                refreshHandler?.removeCallbacksAndMessages(null)
+                refreshHandler = null
+                refreshRunnable = null
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error cleaning up refresh handler: $e")
         }
-        if (playerNotificationManager != null) {
-            playerNotificationManager?.setPlayer(null)
+        try {
+            if (playerNotificationManager != null) {
+                playerNotificationManager?.setPlayer(null)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error setting notification manager player to null: $e")
         }
         bitmap = null
     }
@@ -546,7 +559,18 @@ internal class RiverPlayer(
             }
 
             override fun onPlayerError(error: PlaybackException) {
-                eventSink.error("VideoError", "Video player had error $error", "")
+                isInErrorState = true
+                try {
+                    eventSink.error("VideoError", "Video player had error $error", "")
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error sending error event: $e")
+                }
+                // Stop the player to prevent further operations on a failed player
+                try {
+                    exoPlayer?.stop()
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error stopping player after error: $e")
+                }
             }
         })
         val reply: MutableMap<String, Any> = HashMap()
@@ -555,15 +579,23 @@ internal class RiverPlayer(
     }
 
     fun sendBufferingUpdate(isFromBufferingStart: Boolean) {
-        val bufferedPosition = exoPlayer?.bufferedPosition ?: 0L
-        if (isFromBufferingStart || bufferedPosition != lastSendBufferedPosition) {
-            val event: MutableMap<String, Any> = HashMap()
-            event["event"] = "bufferingUpdate"
-            val range: List<Number?> = listOf(0, bufferedPosition)
-            // iOS supports a list of buffered ranges, so here is a list with a single range.
-            event["values"] = listOf(range)
-            eventSink.success(event)
-            lastSendBufferedPosition = bufferedPosition
+        if (isInErrorState) {
+            return
+        }
+        try {
+            val bufferedPosition = exoPlayer?.bufferedPosition ?: 0L
+            if (isFromBufferingStart || bufferedPosition != lastSendBufferedPosition) {
+                val event: MutableMap<String, Any> = HashMap()
+                event["event"] = "bufferingUpdate"
+                val range: List<Number?> = listOf(0, bufferedPosition)
+                // iOS supports a list of buffered ranges, so here is a list with a single range.
+                event["values"] = listOf(range)
+                eventSink.success(event)
+                lastSendBufferedPosition = bufferedPosition
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error getting buffered position: $e")
+            isInErrorState = true
         }
     }
 
@@ -577,11 +609,29 @@ internal class RiverPlayer(
     }
 
     fun play() {
-        exoPlayer?.playWhenReady = true
+        if (isInErrorState) {
+            Log.w(TAG, "Attempted to play player in error state")
+            return
+        }
+        try {
+            exoPlayer?.playWhenReady = true
+        } catch (e: Exception) {
+            Log.e(TAG, "Error playing player: $e")
+            isInErrorState = true
+        }
     }
 
     fun pause() {
-        exoPlayer?.playWhenReady = false
+        if (isInErrorState) {
+            Log.w(TAG, "Attempted to pause player in error state")
+            return
+        }
+        try {
+            exoPlayer?.playWhenReady = false
+        } catch (e: Exception) {
+            Log.e(TAG, "Error pausing player: $e")
+            isInErrorState = true
+        }
     }
 
     fun setLooping(value: Boolean) {
@@ -616,11 +666,31 @@ internal class RiverPlayer(
     }
 
     fun seekTo(location: Int) {
-        exoPlayer?.seekTo(location.toLong())
+        if (isInErrorState) {
+            Log.w(TAG, "Attempted to seek player in error state")
+            return
+        }
+        try {
+            exoPlayer?.seekTo(location.toLong())
+        } catch (e: Exception) {
+            Log.e(TAG, "Error seeking player: $e")
+            isInErrorState = true
+        }
     }
 
     val position: Long
-        get() = exoPlayer?.currentPosition ?: 0L
+        get() {
+            if (isInErrorState) {
+                return 0L
+            }
+            return try {
+                exoPlayer?.currentPosition ?: 0L
+            } catch (e: Exception) {
+                Log.e(TAG, "Error getting position: $e")
+                isInErrorState = true
+                0L
+            }
+        }
 
     val absolutePosition: Long
         get() {
@@ -660,7 +730,18 @@ internal class RiverPlayer(
         }
     }
 
-    private fun getDuration(): Long = exoPlayer?.duration ?: 0L
+    private fun getDuration(): Long {
+        if (isInErrorState) {
+            return 0L
+        }
+        return try {
+            exoPlayer?.duration ?: 0L
+        } catch (e: Exception) {
+            Log.e(TAG, "Error getting duration: $e")
+            isInErrorState = true
+            0L
+        }
+    }
 
     /**
      * Create media session which will be used in notifications, pip mode.
@@ -692,8 +773,12 @@ internal class RiverPlayer(
     }
 
     fun disposeMediaSession() {
-        if (mediaSession != null) {
-            mediaSession?.release()
+        try {
+            if (mediaSession != null) {
+                mediaSession?.release()
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error releasing media session: $e")
         }
         mediaSession = null
     }
@@ -794,13 +879,33 @@ internal class RiverPlayer(
     fun dispose() {
         disposeMediaSession()
         disposeRemoteNotifications()
-        if (isInitialized) {
-            exoPlayer?.stop()
+        try {
+            if (isInitialized) {
+                exoPlayer?.stop()
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error stopping player during dispose: $e")
         }
-        textureEntry.release()
-        eventChannel.setStreamHandler(null)
-        surface?.release()
-        exoPlayer?.release()
+        try {
+            textureEntry.release()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error releasing texture entry during dispose: $e")
+        }
+        try {
+            eventChannel.setStreamHandler(null)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error setting stream handler during dispose: $e")
+        }
+        try {
+            surface?.release()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error releasing surface during dispose: $e")
+        }
+        try {
+            exoPlayer?.release()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error releasing player during dispose: $e")
+        }
     }
 
     override fun equals(other: Any?): Boolean {
