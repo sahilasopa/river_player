@@ -95,12 +95,14 @@ class ImageWorker(
     private fun getBitmapFromInternalURL(src: String): Bitmap? {
         return try {
             val options = BitmapFactory.Options()
+            // First pass: decode bounds only to get dimensions
             options.inJustDecodeBounds = true
-            options.inSampleSize = calculateBitmapInSampleSize(
-                options
-            )
+            BitmapFactory.decodeFile(src, options)
+            // Calculate sample size based on decoded dimensions
+            options.inSampleSize = calculateBitmapInSampleSize(options)
+            // Second pass: decode the actual bitmap with sample size
             options.inJustDecodeBounds = false
-            BitmapFactory.decodeFile(src)
+            BitmapFactory.decodeFile(src, options)
         } catch (exception: Exception) {
             Log.e(TAG, "Failed to get bitmap from internal url: $src")
             null

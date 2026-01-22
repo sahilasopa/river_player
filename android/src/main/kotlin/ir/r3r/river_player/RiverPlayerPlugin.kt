@@ -125,7 +125,16 @@ class RiverPlayerPlugin : FlutterPlugin, ActivityAware, MethodCallHandler {
             STOP_PRE_CACHE_METHOD -> stopPreCache(call, result)
             CLEAR_CACHE_METHOD -> clearCache(result)
             else -> {
-                val textureId = (call.argument<Any>(TEXTURE_ID_PARAMETER) as Number?)!!.toLong()
+                val textureIdNumber = call.argument<Any>(TEXTURE_ID_PARAMETER) as? Number
+                if (textureIdNumber == null) {
+                    result.error(
+                        "Invalid textureId",
+                        "textureId parameter is null or invalid for method ${call.method}",
+                        null
+                    )
+                    return
+                }
+                val textureId = textureIdNumber.toLong()
                 val player = videoPlayers[textureId]
                 if (player == null) {
                     result.error(
@@ -168,8 +177,16 @@ class RiverPlayerPlugin : FlutterPlugin, ActivityAware, MethodCallHandler {
                 result.success(null)
             }
             SEEK_TO_METHOD -> {
-                val location = (call.argument<Any>(LOCATION_PARAMETER) as Number?)!!.toInt()
-                player.seekTo(location)
+                val locationNumber = call.argument<Any>(LOCATION_PARAMETER) as? Number
+                if (locationNumber == null) {
+                    result.error(
+                        "Invalid location",
+                        "location parameter is null or invalid for seekTo",
+                        null
+                    )
+                    return
+                }
+                player.seekTo(locationNumber.toInt())
                 result.success(null)
             }
             POSITION_METHOD -> {

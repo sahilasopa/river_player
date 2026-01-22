@@ -25,11 +25,10 @@ NSString * DEFAULT_LICENSE_SERVER_URL = @"https://fps.ezdrm.com/api/licenses/";
  ** It returns CKC.
  ** ---------------------------------------*/
 - (NSData *)getContentKeyAndLeaseExpiryFromKeyServerModuleWithRequest:(NSData*)requestBytes and:(NSString *)assetId and:(NSString *)customParams and:(NSError *)errorOut {
-    NSData * decodedData;
-    NSURLResponse * response;
+    __block NSData * decodedData = nil;
     
     NSURL * finalLicenseURL;
-    if (_licenseURL != [NSNull null]){
+    if (_licenseURL != nil && _licenseURL != (id)[NSNull null]){
         finalLicenseURL = _licenseURL;
     } else {
         finalLicenseURL = [[NSURL alloc] initWithString: DEFAULT_LICENSE_SERVER_URL];
@@ -41,12 +40,21 @@ NSString * DEFAULT_LICENSE_SERVER_URL = @"https://fps.ezdrm.com/api/licenses/";
     [request setValue:@"application/octet-stream" forHTTPHeaderField:@"Content-type"];
     [request setHTTPBody:requestBytes];
     
-    @try {
-        decodedData = [NSURLConnection sendSynchronousRequest:request returningResponse:&response error:nil];
-    }
-    @catch (NSException* excp) {
-        NSLog(@"SDK Error, SDK responded with Error: (error)");
-    }
+    dispatch_semaphore_t semaphore = dispatch_semaphore_create(0);
+    
+    NSURLSessionDataTask *task = [[NSURLSession sharedSession] dataTaskWithRequest:request completionHandler:^(NSData * _Nullable data, NSURLResponse * _Nullable response, NSError * _Nullable error) {
+        if (error) {
+            NSLog(@"SDK Error, SDK responded with Error: %@", error.localizedDescription);
+        } else {
+            decodedData = data;
+        }
+        dispatch_semaphore_signal(semaphore);
+    }];
+    [task resume];
+    
+    // Wait for the request to complete (synchronous behavior)
+    dispatch_semaphore_wait(semaphore, DISPATCH_TIME_FOREVER);
+    
     return decodedData;
 }
 
@@ -95,7 +103,7 @@ NSString * DEFAULT_LICENSE_SERVER_URL = @"https://fps.ezdrm.com/api/licenses/";
     
     responseData = [self getContentKeyAndLeaseExpiryFromKeyServerModuleWithRequest:requestBytes and:_assetId and:passthruParams and:error];
     
-    if (responseData != nil && responseData != NULL && ![responseData.class isKindOfClass:NSNull.class]){
+    if (responseData != nil && ![responseData isKindOfClass:[NSNull class]]){
         AVAssetResourceLoadingDataRequest * dataRequest = loadingRequest.dataRequest;
         [dataRequest respondWithData:responseData];
         [loadingRequest finishLoading];

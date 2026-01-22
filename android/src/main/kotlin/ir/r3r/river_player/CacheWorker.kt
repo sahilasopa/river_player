@@ -12,7 +12,6 @@ import androidx.work.Worker
 import androidx.media3.datasource.DataSpec
 import androidx.media3.datasource.HttpDataSource.HttpDataSourceException
 import java.lang.Exception
-import java.util.*
 
 /**
  * Cache worker which download part of video and save in cache for future usage. The cache job
@@ -34,10 +33,12 @@ class CacheWorker(
             val maxCacheFileSize = data.getLong(RiverPlayerPlugin.MAX_CACHE_FILE_SIZE_PARAMETER, 0)
             val headers: MutableMap<String, String> = HashMap()
             for (key in data.keyValueMap.keys) {
-                if (key.contains(RiverPlayerPlugin.HEADER_PARAMETER)) {
-                    val keySplit =
-                        key.split(RiverPlayerPlugin.HEADER_PARAMETER.toRegex()).toTypedArray()[0]
-                    headers[keySplit] = Objects.requireNonNull(data.keyValueMap[key]) as String
+                if (key.startsWith(RiverPlayerPlugin.HEADER_PARAMETER)) {
+                    val headerKey = key.removePrefix(RiverPlayerPlugin.HEADER_PARAMETER)
+                    val headerValue = data.keyValueMap[key] as? String
+                    if (headerKey.isNotEmpty() && headerValue != null) {
+                        headers[headerKey] = headerValue
+                    }
                 }
             }
             val uri = Uri.parse(url)

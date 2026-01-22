@@ -7,35 +7,46 @@ import io.flutter.plugin.common.EventChannel.EventSink
 import java.util.ArrayList
 
 /**
- * And implementation of [EventSink] which can wrap an underlying sink.
+ * An implementation of [EventSink] which can wrap an underlying sink.
  * It delivers messages immediately when downstream is available, but it queues messages before
  * the delegate event sink is set with setDelegate.
- * This class is not thread-safe. All calls must be done on the same thread or synchronized
- * externally.
+ * This class is thread-safe through synchronization.
  */
 internal class QueuingEventSink : EventSink {
+    private val lock = Any()
     private var delegate: EventSink? = null
     private val eventQueue = ArrayList<Any>()
     private var done = false
+
     fun setDelegate(delegate: EventSink?) {
-        this.delegate = delegate
-        maybeFlush()
+        synchronized(lock) {
+            this.delegate = delegate
+            maybeFlush()
+        }
     }
 
     override fun endOfStream() {
-        enqueue(EndOfStreamEvent())
-        maybeFlush()
-        done = true
+        synchronized(lock) {
+            enqueue(EndOfStreamEvent())
+            maybeFlush()
+            done = true
+        }
     }
 
-    override fun error(code: String, message: String, details: Any) {
-        enqueue(ErrorEvent(code, message, details))
-        maybeFlush()
+    override fun error(code: String, message: String?, details: Any?) {
+        synchronized(lock) {
+            enqueue(ErrorEvent(code, message ?: "", details))
+            maybeFlush()
+        }
     }
 
-    override fun success(event: Any) {
-        enqueue(event)
-        maybeFlush()
+    override fun success(event: Any?) {
+        synchronized(lock) {
+            if (event != null) {
+                enqueue(event)
+                maybeFlush()
+            }
+        }
     }
 
     private fun enqueue(event: Any) {
@@ -46,19 +57,17 @@ internal class QueuingEventSink : EventSink {
     }
 
     private fun maybeFlush() {
-        if (delegate == null) {
-            return
-        }
+        val currentDelegate = delegate ?: return
         for (event in eventQueue) {
             when (event) {
                 is EndOfStreamEvent -> {
-                    delegate!!.endOfStream()
+                    currentDelegate.endOfStream()
                 }
                 is ErrorEvent -> {
-                    delegate!!.error(event.code, event.message, event.details)
+                    currentDelegate.error(event.code, event.message, event.details)
                 }
                 else -> {
-                    delegate!!.success(event)
+                    currentDelegate.success(event)
                 }
             }
         }
@@ -69,6 +78,6 @@ internal class QueuingEventSink : EventSink {
     private class ErrorEvent(
         var code: String,
         var message: String,
-        var details: Any
+        var details: Any?
     )
 }

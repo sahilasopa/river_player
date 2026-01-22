@@ -1,16 +1,6 @@
 buildscript {
-    ext.kotlinVersion = "1.8.10"
-    ext.gradleVersion = "7.4.2"
+    ext.kotlinVersion = "2.1.0"
     ext.multidexVersion = "2.0.1"
-    repositories {
-        google()
-        mavenCentral()
-    }
-
-    dependencies {
-        classpath "com.android.tools.build:gradle:$gradleVersion"
-        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlinVersion"
-    }
 }
 
 allprojects {

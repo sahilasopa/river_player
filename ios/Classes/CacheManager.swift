@@ -76,23 +76,24 @@ import PINCache
     
     @objc public func stopPreCache(_ url: URL, cacheKey: String?, completionHandler: ((_ success:Bool) -> Void)?){
         let _key: String = cacheKey ?? url.absoluteString
-        if self._preCachedURLs[_key] != nil {
-            let playerItem = self._preCachedURLs[_key]!
+        if let playerItem = self._preCachedURLs[_key] {
             playerItem.stopDownload()
             self._preCachedURLs.removeValue(forKey: _key)
-            self.completionHandler?(true)
+            completionHandler?(true)
             return
         }
-        self.completionHandler?(false)
+        completionHandler?(false)
     }
     
     ///Gets caching player item for normal playback.
     @objc public func getCachingPlayerItemForNormalPlayback(_ url: URL, cacheKey: String?, videoExtension: String?, headers: Dictionary<NSObject,AnyObject>) -> AVPlayerItem? {
         let mimeTypeResult = getMimeType(url:url, explicitVideoExtension: videoExtension)
         if (mimeTypeResult.1 == "application/vnd.apple.mpegurl"){
-            let reverseProxyURL = server?.reverseProxyURL(from: url)!
-            let playerItem = AVPlayerItem(url: reverseProxyURL!)
-            return playerItem
+            guard let reverseProxyURL = server?.reverseProxyURL(from: url) else {
+                // Fallback to direct URL if reverse proxy is unavailable
+                return AVPlayerItem(url: url)
+            }
+            return AVPlayerItem(url: reverseProxyURL)
         } else {
             return getCachingPlayerItem(url, cacheKey: cacheKey, videoExtension: videoExtension, headers: headers)
         }

@@ -164,7 +164,7 @@ bool _remoteCommandsInitialized = false;
     if (@available(iOS 9.1, *)) {
         [commandCenter.changePlaybackPositionCommand addTargetWithHandler:^MPRemoteCommandHandlerStatus(MPRemoteCommandEvent * _Nonnull event) {
             if (_notificationPlayer != nil){
-                MPChangePlaybackPositionCommandEvent * playbackEvent = (MPChangePlaybackRateCommandEvent * ) event;
+                MPChangePlaybackPositionCommandEvent * playbackEvent = (MPChangePlaybackPositionCommandEvent *) event;
                 CMTime time = CMTimeMake(playbackEvent.positionTime, 1);
                 int64_t millis = [BetterPlayerTimeUtils FLTCMTimeToMillis:(time)];
                 [_notificationPlayer seekTo: millis];
@@ -293,8 +293,21 @@ bool _remoteCommandsInitialized = false;
         [self onPlayerSetup:player result:result];
     } else {
         NSDictionary* argsMap = call.arguments;
-        int64_t textureId = ((NSNumber*)argsMap[@"textureId"]).unsignedIntegerValue;
+        NSNumber* textureIdNumber = argsMap[@"textureId"];
+        if (textureIdNumber == nil || textureIdNumber == [NSNull null]) {
+            result([FlutterError errorWithCode:@"invalid_parameter"
+                                       message:@"textureId parameter is null"
+                                       details:nil]);
+            return;
+        }
+        int64_t textureId = textureIdNumber.unsignedIntegerValue;
         BetterPlayer* player = _players[@(textureId)];
+        if (player == nil) {
+            result([FlutterError errorWithCode:@"unknown_textureId"
+                                       message:[NSString stringWithFormat:@"No player associated with texture id %lld", textureId]
+                                       details:nil]);
+            return;
+        }
         if ([@"setDataSource" isEqualToString:call.method]) {
             [player clear];
             // This call will clear cached frame because we will return transparent frame
