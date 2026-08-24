@@ -600,6 +600,9 @@ class VideoPlayerController extends ValueNotifier<VideoPlayerValue> {
   /// [height] specifies height of the selected track
   /// [bitrate] specifies bitrate of the selected track
   Future<void> setTrackParameters(int? width, int? height, int? bitrate) async {
+    if (!_created || _isDisposed) {
+      return;
+    }
     await _videoPlayerPlatform.setTrackParameters(
         _textureId, width, height, bitrate);
   }

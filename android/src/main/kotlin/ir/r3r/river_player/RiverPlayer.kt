@@ -162,7 +162,10 @@ internal class RiverPlayer(
     private var bitmap: Bitmap? = null
     private var mediaSession: MediaSession? = null
     private var drmSessionManager: DrmSessionManager? = null
-    private val workManager: WorkManager
+    ///Null when the host app has opted out of WorkManager. Pre-caching and
+    ///notification artwork are the only features that need it, so the player
+    ///stays usable without one.
+    private val workManager: WorkManager?
     private val workerObserverMap: HashMap<UUID, Observer<WorkInfo?>>
     private val customDefaultLoadControl: CustomDefaultLoadControl =
         customDefaultLoadControl ?: CustomDefaultLoadControl()
@@ -189,7 +192,7 @@ internal class RiverPlayer(
             .setLoadControl(loadControl)
             .setAudioAttributes(audioAttributes, true)
             .build()
-        workManager = WorkManager.getInstance(context)
+        workManager = workManagerOrNull(context)
         workerObserverMap = HashMap()
         setupVideoPlayer(eventChannel, textureEntry, result)
     }
@@ -325,6 +328,9 @@ internal class RiverPlayer(
                 if (bitmap != null) {
                     return bitmap
                 }
+                //Without a WorkManager the artwork simply cannot be fetched.
+                //The notification still shows, just without a large icon.
+                val workManager = workManager ?: return null
                 val imageWorkRequest = OneTimeWorkRequest.Builder(ImageWorker::class.java)
                     .addTag(imageUrl)
                     .setInputData(
@@ -970,6 +976,24 @@ internal class RiverPlayer(
         private const val DEFAULT_NOTIFICATION_CHANNEL = "BETTER_PLAYER_NOTIFICATION"
         private const val NOTIFICATION_ID = 20772077
 
+        //WorkManager.getInstance throws IllegalStateException when the host app
+        //has disabled WorkManagerInitializer in its manifest and has not called
+        //WorkManager.initialize itself. That used to escape the RiverPlayer
+        //constructor and fail every player creation with "WorkManager is not
+        //initialized properly". Pre-caching and notification artwork are
+        //optional, so report the absence and let playback continue.
+        private fun workManagerOrNull(context: Context?): WorkManager? {
+            if (context == null) {
+                return null
+            }
+            return try {
+                WorkManager.getInstance(context)
+            } catch (exception: Exception) {
+                Log.e(TAG, "WorkManager is unavailable, disabling cache and artwork workers: $exception")
+                null
+            }
+        }
+
         //Clear cache without accessing BetterPlayerCache.
         fun clearCache(context: Context?, result: MethodChannel.Result) {
             try {
@@ -1018,11 +1042,12 @@ internal class RiverPlayer(
                     headers[headerKey]
                 )
             }
-            if (dataSource != null && context != null) {
+            val workManager = workManagerOrNull(context)
+            if (dataSource != null && workManager != null) {
                 val cacheWorkRequest = OneTimeWorkRequest.Builder(CacheWorker::class.java)
                     .addTag(dataSource)
                     .setInputData(dataBuilder.build()).build()
-                WorkManager.getInstance(context).enqueue(cacheWorkRequest)
+                workManager.enqueue(cacheWorkRequest)
             }
             result.success(null)
         }
@@ -1030,8 +1055,8 @@ internal class RiverPlayer(
         //Stop pre cache of video with given url. If there's no work manager job for given url, then
         //it will be ignored.
         fun stopPreCache(context: Context?, url: String?, result: MethodChannel.Result) {
-            if (url != null && context != null) {
-                WorkManager.getInstance(context).cancelAllWorkByTag(url)
+            if (url != null) {
+                workManagerOrNull(context)?.cancelAllWorkByTag(url)
             }
             result.success(null)
         }

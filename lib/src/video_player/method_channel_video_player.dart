@@ -197,21 +197,36 @@ class MethodChannelVideoPlayer extends VideoPlayerPlatform {
     );
   }
 
+  ///Error code the platform side reports when the texture id is well formed
+  ///but no longer maps to a live player, i.e. it was disposed natively while a
+  ///call for it was still on its way down.
+  static const String _unknownTextureIdCode = 'Unknown textureId';
+
   @override
   Future<void> setTrackParameters(
-      int? textureId, int? width, int? height, int? bitrate) {
+      int? textureId, int? width, int? height, int? bitrate) async {
     if (textureId == null) {
-      return Future.value();
+      return;
     }
-    return _channel.invokeMethod<void>(
-      'setTrackParameters',
-      <String, dynamic>{
-        'textureId': textureId,
-        'width': width,
-        'height': height,
-        'bitrate': bitrate,
-      },
-    );
+    try {
+      await _channel.invokeMethod<void>(
+        'setTrackParameters',
+        <String, dynamic>{
+          'textureId': textureId,
+          'width': width,
+          'height': height,
+          'bitrate': bitrate,
+        },
+      );
+    } on PlatformException catch (exception) {
+      // Track selection is driven by ASMS manifest parsing, which can land well
+      // after the player was torn down. There is nothing to configure once the
+      // native player is gone, so treat only that specific failure as a no-op
+      // and let every other platform error propagate.
+      if (exception.code != _unknownTextureIdCode) {
+        rethrow;
+      }
+    }
   }
 
   @override
