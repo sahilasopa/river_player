@@ -152,7 +152,11 @@ class _BetterPlayerState extends State<BetterPlayer>
           .postEvent(BetterPlayerEvent(BetterPlayerEventType.openFullscreen));
       await _pushFullScreenWidget(context);
     } else if (_isFullScreen) {
-      Navigator.of(context, rootNavigator: true).pop();
+      // Same hazard as the push in _pushFullScreenWidget: this runs from a
+      // controller event, which can arrive after the state is disposed.
+      if (mounted) {
+        Navigator.maybeOf(context, rootNavigator: true)?.pop();
+      }
       _isFullScreen = false;
       controller
           .postEvent(BetterPlayerEvent(BetterPlayerEventType.hideFullscreen));
@@ -248,7 +252,19 @@ class _BetterPlayerState extends State<BetterPlayer>
       WakelockPlus.enable();
     }
 
-    await Navigator.of(context, rootNavigator: true).push(route);
+    // Several awaits have run since this method was entered, so the player may
+    // already be gone and `context` defunct by now. `Navigator.of` asserts on a
+    // missing navigator, and that assert is stripped from release builds,
+    // leaving a bare `navigator!` that throws "Null check operator used on a
+    // null value". Skip the push when there is nothing to push onto and fall
+    // through to the teardown below, so the device is not left stuck in
+    // immersive mode with a locked orientation and the wakelock held.
+    final NavigatorState? navigator =
+        mounted ? Navigator.maybeOf(context, rootNavigator: true) : null;
+    if (navigator != null) {
+      await navigator.push(route);
+    }
+
     _isFullScreen = false;
     widget.controller.exitFullScreen();
 

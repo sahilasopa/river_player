@@ -74,28 +74,28 @@ abstract class BetterPlayerControlsState<T extends StatefulWidget>
               _buildMoreOptionsListRow(
                   betterPlayerControlsConfiguration.playbackSpeedIcon,
                   translations.overflowMenuPlaybackSpeed, () {
-                Navigator.of(context).pop();
+                _popModalRoute();
                 _showSpeedChooserWidget();
               }),
             if (betterPlayerControlsConfiguration.enableSubtitles)
               _buildMoreOptionsListRow(
                   betterPlayerControlsConfiguration.subtitlesIcon,
                   translations.overflowMenuSubtitles, () {
-                Navigator.of(context).pop();
+                _popModalRoute();
                 _showSubtitlesSelectionWidget();
               }),
             if (betterPlayerControlsConfiguration.enableQualities)
               _buildMoreOptionsListRow(
                   betterPlayerControlsConfiguration.qualitiesIcon,
                   translations.overflowMenuQuality, () {
-                Navigator.of(context).pop();
+                _popModalRoute();
                 _showQualitiesSelectionWidget();
               }),
             if (betterPlayerControlsConfiguration.enableAudioTracks)
               _buildMoreOptionsListRow(
                   betterPlayerControlsConfiguration.audioTracksIcon,
                   translations.overflowMenuAudioTracks, () {
-                Navigator.of(context).pop();
+                _popModalRoute();
                 _showAudioTracksSelectionWidget();
               }),
             if (betterPlayerControlsConfiguration
@@ -105,7 +105,7 @@ abstract class BetterPlayerControlsState<T extends StatefulWidget>
                   customItem.icon,
                   customItem.title,
                   () {
-                    Navigator.of(context).pop();
+                    _popModalRoute();
                     customItem.onClicked.call();
                   },
                 ),
@@ -159,7 +159,7 @@ abstract class BetterPlayerControlsState<T extends StatefulWidget>
 
     return BetterPlayerMaterialClickableWidget(
       onTap: () {
-        Navigator.of(context).pop();
+        _popModalRoute();
         betterPlayerController!.setSpeed(value);
       },
       child: Padding(
@@ -232,11 +232,11 @@ abstract class BetterPlayerControlsState<T extends StatefulWidget>
         betterPlayerController!.betterPlayerSubtitlesSource;
     final bool isSelected = (subtitlesSource == selectedSourceType) ||
         (subtitlesSource.type == BetterPlayerSubtitlesSourceType.none &&
-            subtitlesSource.type == selectedSourceType!.type);
+            subtitlesSource.type == selectedSourceType?.type);
 
     return BetterPlayerMaterialClickableWidget(
       onTap: () {
-        Navigator.of(context).pop();
+        _popModalRoute();
         betterPlayerController!.setupSubtitleSource(subtitlesSource);
       },
       child: Padding(
@@ -319,7 +319,7 @@ abstract class BetterPlayerControlsState<T extends StatefulWidget>
 
     return BetterPlayerMaterialClickableWidget(
       onTap: () {
-        Navigator.of(context).pop();
+        _popModalRoute();
         betterPlayerController!.setTrack(track);
       },
       child: Padding(
@@ -350,7 +350,7 @@ abstract class BetterPlayerControlsState<T extends StatefulWidget>
         url == betterPlayerController!.betterPlayerDataSource!.url;
     return BetterPlayerMaterialClickableWidget(
       onTap: () {
-        Navigator.of(context).pop();
+        _popModalRoute();
         betterPlayerController!.setResolution(url);
       },
       child: Padding(
@@ -409,7 +409,7 @@ abstract class BetterPlayerControlsState<T extends StatefulWidget>
       BetterPlayerAsmsAudioTrack audioTrack, bool isSelected) {
     return BetterPlayerMaterialClickableWidget(
       onTap: () {
-        Navigator.of(context).pop();
+        _popModalRoute();
         betterPlayerController!.setAudioTrack(audioTrack);
       },
       child: Padding(
@@ -443,6 +443,21 @@ abstract class BetterPlayerControlsState<T extends StatefulWidget>
           : betterPlayerControlsConfiguration.overflowModalTextColor
               .withValues(alpha: 0.7),
     );
+  }
+
+  ///Dismisses the overflow modal opened by [_showModalBottomSheet].
+  ///
+  ///The rows inside those modals are built with the controls' own [context],
+  ///which can be defunct by the time a row is tapped - the player may have been
+  ///disposed while the sheet was still up. `Navigator.of` asserts on a missing
+  ///navigator, and that assert is stripped in release builds, so it degrades
+  ///into `navigator!` and throws "Null check operator used on a null value".
+  ///Look the navigator up in a way that tolerates its absence instead.
+  void _popModalRoute() {
+    if (!mounted) {
+      return;
+    }
+    Navigator.maybeOf(context)?.pop();
   }
 
   void _showModalBottomSheet(List<Widget> children) {
@@ -519,12 +534,21 @@ abstract class BetterPlayerControlsState<T extends StatefulWidget>
   }
 
   ///Called when player controls visibility should be changed.
+  ///
+  ///This is driven by timers and player events that outlive the widget, so it
+  ///can fire after the state has been disposed. `setState` dereferences its
+  ///element with `_element!` once the debug-only assert is stripped, which
+  ///surfaces as "Null check operator used on a null value" in release builds.
   void changePlayerControlsNotVisible(bool notVisible) {
+    if (notVisible) {
+      betterPlayerController?.postEvent(
+          BetterPlayerEvent(BetterPlayerEventType.controlsHiddenStart));
+    }
+    if (!mounted) {
+      controlsNotVisible = notVisible;
+      return;
+    }
     setState(() {
-      if (notVisible) {
-        betterPlayerController?.postEvent(
-            BetterPlayerEvent(BetterPlayerEventType.controlsHiddenStart));
-      }
       controlsNotVisible = notVisible;
     });
   }

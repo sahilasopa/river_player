@@ -159,21 +159,42 @@ class _VideoProgressBarState
 
   void seekToRelativePosition(Offset globalPosition) async {
     final RenderObject? renderObject = context.findRenderObject();
-    if (renderObject != null) {
-      final box = renderObject as RenderBox;
-      final Offset tapPos = box.globalToLocal(globalPosition);
-      final double relative = tapPos.dx / box.size.width;
-      if (relative > 0) {
-        final Duration position = controller!.value.duration! * relative;
-        lastSeek = position;
-        await betterPlayerController!.seekTo(position);
-        onFinishedLastSeek();
-        if (relative >= 1) {
-          lastSeek = controller!.value.duration;
-          await betterPlayerController!.seekTo(controller!.value.duration!);
-          onFinishedLastSeek();
-        }
+    if (renderObject == null) {
+      return;
+    }
+    final box = renderObject as RenderBox;
+    final Offset tapPos = box.globalToLocal(globalPosition);
+    final double relative = tapPos.dx / box.size.width;
+    if (relative <= 0) {
+      return;
+    }
+
+    final Duration? duration = controller?.value.duration;
+    if (duration == null) {
+      return;
+    }
+
+    final Duration position = duration * relative;
+    lastSeek = position;
+    await betterPlayerController?.seekTo(position);
+    onFinishedLastSeek();
+
+    if (relative >= 1) {
+      // The seek above is awaited, and the controller can be disposed or
+      // pointed at a new data source while it is in flight. Re-read the
+      // duration instead of reusing the value captured before the await -
+      // dereferencing the stale one is what threw "Null check operator used on
+      // a null value" here.
+      if (!mounted) {
+        return;
       }
+      final Duration? endDuration = controller?.value.duration;
+      if (endDuration == null) {
+        return;
+      }
+      lastSeek = endDuration;
+      await betterPlayerController?.seekTo(endDuration);
+      onFinishedLastSeek();
     }
   }
 

@@ -322,7 +322,10 @@ class DataSource {
       result = "$result:$rawFormalHint";
     }
 
-    return result!;
+    // `asset` is nullable, so the branch above can leave `result` null and the
+    // null check operator then throws. An empty key is harmless - it is only
+    // used to compare data sources.
+    return result ?? "";
   }
 
   @override
