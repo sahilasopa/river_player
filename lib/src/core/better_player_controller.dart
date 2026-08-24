@@ -1183,13 +1183,36 @@ class BetterPlayerController {
   }
 
   ///Retry data source if playback failed.
+  ///
+  ///When the retry itself fails (still offline, dead URL) the freshly set up
+  ///data source has no duration yet, so restoring the previous position would
+  ///make [seekTo] throw `Bad state: The video has not been initialized yet.`.
+  ///That throw used to escape to the caller — and, since retry is normally
+  ///invoked from a fire-and-forget button handler, on to the zone error handler
+  ///as an app crash. Only restore the position once the player is actually
+  ///initialized, and never let restoring it break the retry.
   Future retryDataSource() async {
-    await _setupDataSource(_betterPlayerDataSource!);
-    if (_videoPlayerValueOnError != null) {
-      final position = _videoPlayerValueOnError!.position;
-      await seekTo(position);
+    final dataSource = _betterPlayerDataSource;
+    if (dataSource == null) {
+      return;
+    }
+    await _setupDataSource(dataSource);
+
+    final valueOnError = _videoPlayerValueOnError;
+    if (valueOnError == null) {
+      return;
+    }
+    if (videoPlayerController?.value.duration == null) {
+      // Setup failed again; keep the saved position so the next retry can use it.
+      return;
+    }
+
+    try {
+      await seekTo(valueOnError.position);
       await play();
       _videoPlayerValueOnError = null;
+    } catch (exception) {
+      BetterPlayerUtils.log("Failed to restore position after retry: $exception");
     }
   }
 
