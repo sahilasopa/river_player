@@ -7,6 +7,7 @@ import 'package:river_player/river_player.dart';
 import 'package:river_player/src/configuration/better_player_controller_event.dart';
 import 'package:river_player/src/controls/better_player_cupertino_controls.dart';
 import 'package:river_player/src/controls/better_player_material_controls.dart';
+import 'package:river_player/src/controls/better_player_vertical_drag_controls.dart';
 import 'package:river_player/src/core/better_player_utils.dart';
 import 'package:river_player/src/subtitles/better_player_subtitles_drawer.dart';
 import 'package:river_player/src/video_player/video_player.dart';
@@ -148,6 +149,7 @@ class _BetterPlayerWithControlsState extends State<BetterPlayerWithControls> {
           ),
           if (!placeholderOnTop) _buildPlaceholder(betterPlayerController),
           _buildControls(context, betterPlayerController),
+          BetterPlayerVerticalDragControls(controller: betterPlayerController),
         ],
       ),
     );
@@ -173,14 +175,23 @@ class _BetterPlayerWithControlsState extends State<BetterPlayerWithControls> {
         }
       }
 
+      Widget? controls;
       if (controlsConfiguration.customControlsBuilder != null &&
           playerTheme == BetterPlayerTheme.custom) {
-        return controlsConfiguration.customControlsBuilder!(
+        controls = controlsConfiguration.customControlsBuilder!(
             betterPlayerController, onControlsVisibilityChanged);
       } else if (playerTheme == BetterPlayerTheme.material) {
-        return _buildMaterialControl();
+        controls = _buildMaterialControl();
       } else if (playerTheme == BetterPlayerTheme.cupertino) {
-        return _buildCupertinoControl();
+        controls = _buildCupertinoControl();
+      }
+
+      if (controls != null) {
+        // Keep the controls (top bar + bottom seekbar) clear of the notch and
+        // home indicator when fullscreen, so the progress bar stays reachable.
+        return betterPlayerController.isFullScreen
+            ? SafeArea(child: controls)
+            : controls;
       }
     }
 

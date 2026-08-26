@@ -23,6 +23,7 @@ dependencies:
   path_provider: ^2.0.10
   collection: ^1.16.0
   xml: ^6.1.0
+  screen_brightness: ^2.1.2
 
 dev_dependencies:
   lint: ^2.3.0

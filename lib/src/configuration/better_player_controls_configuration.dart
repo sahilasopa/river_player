@@ -60,6 +60,14 @@ class BetterPlayerControlsConfiguration {
   ///Flag used to enable skip forward and skip back
   final bool enableSkips;
 
+  ///Flag used to enable/disable the Netflix-style vertical swipe on the left
+  ///side of the player (in fullscreen) to control device screen brightness.
+  final bool enableBrightnessControl;
+
+  ///Flag used to enable/disable the Netflix-style vertical swipe on the right
+  ///side of the player (in fullscreen) to control the media volume.
+  final bool enableVolumeControl;
+
   ///Progress bar played color
   final Color progressBarPlayedColor;
 
@@ -180,6 +188,8 @@ class BetterPlayerControlsConfiguration {
     this.enableProgressBarDrag = true,
     this.enablePlayPause = true,
     this.enableSkips = true,
+    this.enableBrightnessControl = true,
+    this.enableVolumeControl = true,
     this.enableAudioTracks = true,
     this.progressBarPlayedColor = Colors.white,
     this.progressBarHandleColor = Colors.white,
